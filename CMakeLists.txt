@@ -138,7 +138,7 @@ IF ( BUILD_MMG3D OR BUILD_MMG )
         COMMAND genheader ${MMG_SOURCE_DIR}/libmmg3df.h ${MMG_SOURCE_DIR}/libmmg3d.h ${CMAKE_SOURCE_DIR}/scripts/genfort.pl
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         DEPENDS genheader ${MMG_SOURCE_DIR}/libmmg3d.h ${CMAKE_SOURCE_DIR}/scripts/genfort.pl
-        COMMENT "Generating Fortran header ${CMAKE_BUILD_DIR}"
+        COMMENT "Generating Fortran header"
         )
 
     ###############################################################################
@@ -615,18 +615,19 @@ IF ( BUILD_MMG3D OR BUILD_MMG )
         # Change authorisations for some files...
         IF ( EXISTS ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd7/unreadable.meshb)
             FILE(REMOVE ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd7/unwrittable.meshb)
-            FILE(COPY ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd7/dout.mesh
-                DESTINATION ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd7/unwrittable.meshb)
+        ENDIF()
+        FILE(COPY ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd7/dout.mesh
+            DESTINATION ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd7/unwrittable.meshb)
 
-            IF ( EXISTS ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd8/unwrittable.sol)
-                FILE(REMOVE ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd8/unwrittable.sol)
-            ENDIF()
-            FILE(COPY ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd8/dsol.sol
-                DESTINATION ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd8/unwrittable.sol)
+        IF ( EXISTS ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd8/unwrittable.sol)
+            FILE(REMOVE ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd8/unwrittable.sol)
+        ENDIF()
+        FILE(COPY ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd8/dsol.sol
+            DESTINATION ${MMG3D_CI_TESTS}/LeakCheck_AbnormalEnd8/unwrittable.sol)
 
-        ENDIF( )
-    ENDIF()
+    ENDIF(CONTINUOUS_INTEGRATION)
 ENDIF()
+
 ###############################################################################
 #####
 #####         Create API Documentation
