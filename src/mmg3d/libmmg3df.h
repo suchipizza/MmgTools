@@ -76,7 +76,7 @@
 
 #define MMG5_STRONGFAILURE 2
 ! /**
-!  * \def MMG5_SIZE
+!  * \def SIZE
 !  *
 !  * Size of the mesh of singularities inside the main mesh (SINGUL mode only).
 !  *
