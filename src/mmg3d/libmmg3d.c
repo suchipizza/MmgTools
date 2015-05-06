@@ -393,6 +393,11 @@ int MMG5_mmg3dlib(MMG5_pMesh mesh,MMG5_pSol met
   }
   else {
 #ifdef SINGUL
+#ifndef PATTERN
+    fprintf(stdout,"Error: sigularity mode only available in pattern mode "
+            "(PATTERN cmake flag set to on).\n");
+    return(MMG5_STRONGFAILURE);
+#endif
     if ( mesh->info.sing ) {
       if ( !mesh->info.iso ) {
         if ( !met->np && !_MMG5_DoSol(mesh,met) )

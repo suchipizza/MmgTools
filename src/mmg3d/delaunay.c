@@ -133,8 +133,6 @@ int _MMG5_delone(MMG5_pMesh mesh,MMG5_pSol sol,int ip,int *list,int ilist) {
   int              tref,isused=0,ixt,ielnum[3*LONMAX+1],ll;
   _MMG5_Hash       hedg;
 
-  //obsolete avec la realloc
-  // if ( mesh->ne + 2*ilist > mesh->nemax )  {printf("on passe ici boum\n");return(0);}
   base = mesh->mark;
   /* external faces */
   size = 0;
@@ -533,10 +531,10 @@ _MMG5_correction_iso(MMG5_pMesh mesh,int ip,int *list,int ilist,int nedep) {
 
 /** Return a negative value for ilist if one of the tet of the cavity is required */
 int _MMG5_cavity(MMG5_pMesh mesh,MMG5_pSol sol,int iel,int ip,int *list,int lon) {
-  MMG5_pPoint ppt;
+  MMG5_pPoint      ppt;
   MMG5_pTetra      pt,pt1,ptc;
   double           c[3],crit,dd,eps,ray,ct[12];
-  int             *adja,*adjb,k,adj,adi,voy,i,j,ilist,ipil,jel,iadr,base;
+  int              *adja,*adjb,k,adj,adi,voy,i,j,ilist,ipil,jel,iadr,base;
   int              vois[4],l;
   int              tref,isreq;
 
@@ -620,9 +618,6 @@ int _MMG5_cavity(MMG5_pMesh mesh,MMG5_pSol sol,int iel,int ip,int *list,int lon)
     ++ipil;
   }
   while ( ipil < ilist );
-
-  /* global overflow: obsolete avec la reallocation */
-  //if ( mesh->ne + 2*ilist >= mesh->nemax ) {
 
   ilist = _MMG5_correction_iso(mesh,ip,list,ilist,lon);
 
