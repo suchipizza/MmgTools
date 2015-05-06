@@ -39,16 +39,16 @@ mytime    ctim[TIMEMAX];
 
 #ifdef SINGUL
 #define RETURN_AND_FREE(mesh,met,sing,val)do    \
-    {                                                 \
-      MMG5_Free_all(mesh,met,sing);                   \
-      return(val);                                    \
-    }while(0)
+  {                                             \
+    MMG5_Free_all(mesh,met,sing);               \
+    return(val);                                \
+  }while(0)
 #else
 #define RETURN_AND_FREE(mesh,met,sing,val)do    \
-    {                                                 \
-      MMG5_Free_all(mesh,met);                        \
-      return(val);                                    \
-    }while(0)
+  {                                             \
+    MMG5_Free_all(mesh,met);                    \
+    return(val);                                \
+  }while(0)
 #endif
 
 static inline void endcod() {
@@ -61,11 +61,11 @@ static inline void endcod() {
 
 int main(int argc,char *argv[]) {
   MMG5_pMesh      mesh;
-  MMG5_pSol       met;
+  MMG5_pSol       met,disp;
 #ifdef SINGUL
   MMG5_pSingul    sing;
 #endif
-  int             ier;
+  int             ier,dummy,typSol;
   char            stim[32];
 
   atexit(endcod);
@@ -100,12 +100,12 @@ int main(int argc,char *argv[]) {
   fprintf(stdout,"\n  -- INPUT DATA\n");
   chrono(ON,&ctim[1]);
   /* read mesh file */
-  if ( !MMG5_loadMesh(mesh) ) {
+  if ( MMG5_loadMesh(mesh)<1 ) {
     MMG5_Free_all(mesh,met
 #ifdef SINGUL
-                 ,sing
+                  ,sing
 #endif
-                 );
+      );
     return(MMG5_STRONGFAILURE);
   }
   if ( !MMG5_Set_solSize(mesh,met,MMG5_Vertex,0,MMG5_Scalar) ) {
@@ -113,32 +113,74 @@ int main(int argc,char *argv[]) {
 #ifdef SINGUL
                   ,sing
 #endif
-                  );
+      );
     return(MMG5_STRONGFAILURE);
   }
 
-  /* read metric if any */
-  ier = MMG5_loadMet(mesh,met);
-  if ( !ier ) {
-    MMG5_Free_all(mesh,met
-#ifdef SINGUL
-                 ,sing
-#endif
-                 );
+  /* read displacement if any */
+  if ( MMG5_Get_iparameter(mesh, MMG5_IPARAM_lag) > -1 ) {
+    fprintf(stdout,"  ## ERROR: LAGRANGIAN MOTION NOT YET IMPLEMENTED IN LIBRARY.\n");
     return(MMG5_STRONGFAILURE);
-  }
-#ifdef SINGUL
-  if ( mesh->info.sing && sing->namein ) {
-    ier = MMG5_loadSingul(mesh,sing);
-    if ( !ier ) {
-      MMG5_Free_all(mesh,met,sing);
+
+    if ( !MMG5_Set_inputSolName(mesh,disp,met->namein) ) {
+      return(MMG5_STRONGFAILURE);
+    }
+    ier = MMG5_loadMet(mesh,disp);
+    if ( ier == 0 ) {
+      fprintf(stdout,"  ## ERROR: NO DISPLACEMENT FOUND.\n");
+      return(MMG5_STRONGFAILURE);
+    }
+    else if ( ier == -1 ) {
+      fprintf(stdout,"  ## ERROR: WRONG DATA TYPE OR WRONG SOLUTION NUMBER.\n");
       return(MMG5_STRONGFAILURE);
     }
   }
+  /* read metric if any */
+  else {
+    ier = MMG5_loadMet(mesh,met);
+    if ( ier == -1 ) {
+      fprintf(stdout,"  ## ERROR: WRONG DATA TYPE OR WRONG SOLUTION NUMBER.\n");
+      MMG5_Free_all(mesh,met
+#ifdef SINGUL
+                    ,sing
 #endif
-  if ( !MMG5_parsop(mesh,met) )
-    RETURN_AND_FREE(mesh,met,sing,MMG5_LOWFAILURE);
+                    );
+      return(MMG5_STRONGFAILURE);
+    }
+    else {
+      MMG5_Get_solSize( mesh, met, &dummy, &dummy, &typSol);
+      if ( typSol != MMG5_Scalar ) {
+        fprintf(stdout,"  ## ERROR: ANISOTROPIC METRIC NOT IMPLEMENTED.\n");
+        MMG5_Free_all(mesh,met
+#ifdef SINGUL
+                      ,sing
+#endif
+          );
+        return(MMG5_STRONGFAILURE);
+      }
+    }
+    if ( MMG5_Get_iparameter(mesh, MMG5_IPARAM_iso) && !ier ) {
+      fprintf(stdout,"  ## ERROR: NO ISOVALUE DATA.\n");
+      MMG5_Free_all(mesh,met
+#ifdef SINGUL
+                    ,sing
+#endif
+        );
+      return(MMG5_STRONGFAILURE);
+    }
 
+#ifdef SINGUL
+    if ( mesh->info.sing && sing->namein ) {
+      ier = MMG5_loadSingul(mesh,sing);
+      if ( !ier ) {
+        MMG5_Free_all(mesh,met,sing);
+        return(MMG5_STRONGFAILURE);
+      }
+    }
+#endif
+    if ( !MMG5_parsop(mesh,met) )
+      RETURN_AND_FREE(mesh,met,sing,MMG5_LOWFAILURE);
+  }
   chrono(OFF,&ctim[1]);
   printim(ctim[1].gdif,stim);
   fprintf(stdout,"  -- DATA READING COMPLETED.     %s\n",stim);
@@ -147,7 +189,7 @@ int main(int argc,char *argv[]) {
 #ifdef SINGUL
                       ,sing
 #endif
-                      );
+    );
 
   if ( ier != MMG5_STRONGFAILURE ) {
     chrono(ON,&ctim[1]);
@@ -156,18 +198,18 @@ int main(int argc,char *argv[]) {
     if ( !MMG5_saveMesh(mesh) )         {
       MMG5_Free_all(mesh,met
 #ifdef SINGUL
-                   ,sing
+                    ,sing
 #endif
-                   );
+        );
       return(EXIT_FAILURE);
     }
     if ( !MMG5_saveMet(mesh,met) )     {
-      MMG5_Free_all(mesh,met
+        MMG5_Free_all(mesh,met
 #ifdef SINGUL
-                   ,sing
+                      ,sing
 #endif
-                   );
-      return(EXIT_FAILURE);
+          );
+        return(EXIT_FAILURE);
     }
     chrono(OFF,&ctim[1]);
     if ( mesh->info.imprim )
@@ -180,8 +222,8 @@ int main(int argc,char *argv[]) {
   fprintf(stdout,"\n   MMG3D: ELAPSED TIME  %s\n",stim);
   MMG5_Free_all(mesh,met
 #ifdef SINGUL
-               ,sing
+                ,sing
 #endif
-               );
+    );
   return(ier);
 }

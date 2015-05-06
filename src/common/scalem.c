@@ -22,7 +22,7 @@
 */
 
 /**
- * \file mmg3d/scalem.c
+ * \file common/scalem.c
  * \brief Scale and unscale mesh and solution.
  * \author Charles Dapogny (LJLL, UPMC)
  * \author Cécile Dobrzynski (Inria / IMB, Université de Bordeaux)
@@ -30,20 +30,22 @@
  * \author Algiane Froehly (Inria / IMB, Université de Bordeaux)
  * \version 5
  * \copyright GNU Lesser General Public License.
- * \todo Doxygen documentation
  */
 
-#include "mmg3d.h"
+#include "mmg.h"
 
-int _MMG5_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSingul sing) {
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \return 1 if success, 0 if fail (computed bounding box too small).
+ *
+ * Compute the mesh bounding box and fill the \a min, \a max and \a delta fields
+ * of the \ref _MMG5_info structure.
+ *
+ */
+int _MMG5_boundingBox(MMG5_pMesh mesh) {
   MMG5_pPoint    ppt;
-#ifdef SINGUL
-  MMG5_psPoint   ppts;
-  double    deltb,delta[3];
-#endif
-  double    dd;
-  int       i,k;
-  MMG5_pPar      par;
+  int            k,i;
+  double         dd;
 
   /* compute bounding box */
   for (i=0; i<3; i++) {
@@ -69,6 +71,36 @@ int _MMG5_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSingul sing) {
     return(0);
   }
 
+  return(1);
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \param met pointer toward the metric or solution structure.
+ * \return 1 if success, 0 if fail (computed bounding box too small).
+ *
+ * Scale the mesh and the size informations between 0 and 1.
+ *
+ */
+int _MMG5_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met
+#ifdef SINGUL
+                    , MMG5_pSingul sing
+#endif
+) {
+  MMG5_pPoint    ppt;
+  double         dd,d1;
+  int            k,sethmin,sethmax;
+  MMG5_pPar      par;
+#ifdef SINGUL
+  MMG5_psPoint   ppts;
+  double         deltb,delta[3];
+  int            i;
+#endif
+
+
+  /* compute bounding box */
+  if ( ! _MMG5_boundingBox(mesh) ) return(0);
+
   /* normalize coordinates */
   dd = 1.0 / mesh->info.delta;
   for (k=1; k<=mesh->np; k++) {
@@ -80,14 +112,51 @@ int _MMG5_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSingul sing) {
   }
 
   /* normalize values */
-  mesh->info.hmin  *= dd;
-  mesh->info.hmax  *= dd;
+  sethmin = 0;
+  sethmax = 0;
+  if ( mesh->info.hmin > 0. ) {
+    mesh->info.hmin  *= dd;
+    sethmin = 1;
+  }
+  else mesh->info.hmin  = 0.01;
+
+  if ( mesh->info.hmax > 0. ) {
+    mesh->info.hmax  *= dd;
+    sethmax = 1;
+  }
+  else mesh->info.hmax  = 1.;
+
+  if ( mesh->info.hmax < mesh->info.hmin ) {
+    if ( sethmin && sethmax ) {
+      fprintf(stdout,"  ## ERROR: MISMATCH PARAMETERS:"
+              "MINIMAL MESH SIZE LARGER THAN MAXIMAL ONE.\n");
+      fprintf(stdout,"  Exit program.\n");
+      exit(EXIT_FAILURE);
+    }
+    else if ( sethmin )
+      mesh->info.hmax = 100. * mesh->info.hmin;
+    else
+      mesh->info.hmin = 0.01 * mesh->info.hmax;
+  }
+
+
   mesh->info.hausd *= dd;
 
   /* normalize sizes */
-  if ( met->size == 1 && met->m ) {
-    for (k=1; k<=mesh->np; k++)
-      met->m[k] *= dd;
+  if ( met->m ) {
+    if ( met->size == 1 ) {
+      for (k=1; k<=mesh->np; k++)    met->m[k] *= dd;
+    }
+    else if ( met->size==3 ){
+      for (k=1; k<=mesh->np; k++) {
+        met->m[3*k]   *= dd;
+        met->m[3*k+1] *= dd;
+        met->m[3*k+2] *= dd;
+      }
+    } else { //met->size==6
+      d1 = 1.0 / (dd*dd);
+      for (k=6; k<6*(mesh->np+1); k++)  met->m[k] *= d1;
+    }
   }
 
 #ifdef SINGUL
@@ -116,19 +185,30 @@ int _MMG5_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSingul sing) {
     }
   }
 #endif
+
   /* normalize local parameters */
   for (k=0; k<mesh->info.npar; k++) {
     par = &mesh->info.par[k];
+    par->hmin  *= dd;
+    par->hmax  *= dd;
     par->hausd *= dd;
   }
 
   return(1);
 }
 
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \param met pointer toward the metric or solution structure.
+ * \return 1.
+ *
+ * Unscale the mesh and the size informations to their initial sizes.
+ *
+ */
 int _MMG5_unscaleMesh(MMG5_pMesh mesh,MMG5_pSol met) {
   MMG5_pPoint     ppt;
-  double     dd;
-  int        k;
+  double          dd;
+  int             k,i;
   MMG5_pPar       par;
 
   /* de-normalize coordinates */
@@ -142,10 +222,20 @@ int _MMG5_unscaleMesh(MMG5_pMesh mesh,MMG5_pSol met) {
   }
 
   /* unscale sizes */
-  if(met->m){
-    for (k=1; k<=mesh->np; k++) {
-      ppt = &mesh->point[k];
-      if ( MG_VOK(ppt) )	met->m[k] *= dd;
+  if ( met->m ) {
+    if ( met->size == 6 ) {
+      dd = 1.0 / (dd*dd);
+      for (k=1; k<=mesh->np; k++) {
+        ppt = &mesh->point[k];
+        if ( !MG_VOK(ppt) )  continue;
+        for (i=0; i<6; i++)  met->m[6*k+i] *= dd;
+      }
+    }
+    else {
+      for (k=1; k<=mesh->np ; k++) {
+        ppt = &mesh->point[k];
+        if ( MG_VOK(ppt) )  met->m[k] *= dd;
+      }
     }
   }
 
